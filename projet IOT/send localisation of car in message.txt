@@ -1,0 +1,101 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
+#include <HardwareSerial.h> // include the HardwareSerial library
+
+HardwareSerial gpsSerial(2); // create a new HardwareSerial object for the GPS module
+
+
+// Replace with your network credentials
+const char* ssid = "LJ";
+const char* password = "12345678";
+
+// Initialize Telegram BOT
+#define BOTtoken "6085555457:AAHjRnQ1ssl9RNPQ_wohVL7lBH2zKgbrGkU"  // your Bot Token (Get from Botfather)
+
+#define CHAT_ID "6040583016"
+
+WiFiClientSecure client;
+UniversalTelegramBot bot(BOTtoken, client);
+
+
+
+MPU6050 accelgyro;
+
+int16_t ax, ay, az;
+int16_t gx, gy, gz;;
+
+void setup() {  
+  Wire.begin();
+  Serial.begin(9600);
+  while (!Serial);
+  accelgyro.initialize();
+  Serial.print("Connecting Wifi: ");
+  Serial.println(ssid);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  client.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+     }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  bot.sendMessage(CHAT_ID, "Bot started up", "");
+   Serial.begin(9600); // start serial communication at 9600 bps
+  gpsSerial.begin(4800, SERIAL_8N1, 13, 12); // start serial communication with the GPS module at 4800 bps, using pins 16 and 17
+}
+
+void loop() {
+  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  while (gpsSerial.available()) { // check if there is data available from the GPS module
+    String nmea = gpsSerial.readStringUntil('\n'); // read the NMEA string from the GPS module
+    if (nmea.startsWith("$GPGGA")) { // check if the NMEA string is a GGA sentence
+      int commaIndex = 0;
+      String latitude, longitude;
+      for (int i = 0; i < nmea.length(); i++) { // loop through the characters in the NMEA string
+        if (nmea.charAt(i) == ',') { // check if the current character is a comma
+          commaIndex++; // increment the comma counter
+          if (commaIndex == 2) { // check if this is the second comma (latitude)
+            latitude = nmea.substring(i+1, i+10); // extract the latitude data
+            Serial.print("Latitude: ");
+            Serial.println(latitude);
+          }
+          if (commaIndex == 4) { // check if this is the fourth comma (longitude)
+            longitude = nmea.substring(i+1, i+11); // extract the longitude data
+            Serial.print("Longitude: ");
+            Serial.println(longitude);
+            break; // exit the loop
+          }
+        }
+      }
+      // construct the link to Google Maps with the latitude and longitude data
+      String link = "https://www.google.com/maps/search/?api=1&query=" + latitude + "," + longitude;
+      Serial.print("Google Maps link: ");
+      Serial.println(link);
+    }
+  }
+  
+
+  
+   delay (6000);
+    Serial.println(0);
+    bot.sendMessage(CHAT_ID, "Accedent happend  ", "");delay(5000);
+    bot.sendMessage(CHAT_ID, "https://maps.app.goo.gl/b8PwhMDSn6KDKhCR7", "");delay(5000);
+    
+
+    
+   //else
+   Serial.println(1);
+
+  
+  delay(1000);}
